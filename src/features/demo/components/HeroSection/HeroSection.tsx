@@ -12,7 +12,7 @@ export function HeroSection({ sdkLoaded, onBuy }: HeroSectionProps) {
       <div className="hero-banner">
         <div className="hero-badge">
           <Sparkles size={14} className="text-amber-500" />
-          <span>Dodo Payments Checkout Demo • Built by @hey-sourabh</span>
+          <span>Demo • Built by @hey-sourabh</span>
         </div>
         <h1 className="hero-title">Developer Cloud Sandboxes</h1>
         <p className="hero-desc">
