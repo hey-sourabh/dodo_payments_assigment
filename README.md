@@ -3,7 +3,7 @@
 An embeddable, secure checkout experience built for Dodo Payments.
 
 ## a. Live Link to Demo
-[Add your Vercel deployment link here]
+https://dodo-payments-assigment.vercel.app/
 
 ## b. Source Code
 This repository contains the complete implementation.
