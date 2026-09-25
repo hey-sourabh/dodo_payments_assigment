@@ -1,0 +1,1 @@
+export { QuickFillStrip } from './QuickFillStrip';

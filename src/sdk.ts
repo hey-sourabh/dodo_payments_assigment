@@ -1,31 +1,31 @@
-interface DodoCheckoutSuccessPayload {
-  sessionId: string;
-}
-
-interface DodoCheckoutErrorPayload {
-  code: string;
-  message: string;
-}
-
-interface DodoCheckoutConfig {
-  productId: string;
-  onSuccess?: (payload: DodoCheckoutSuccessPayload) => void;
-  onClose?: (reason: 'user_closed' | 'completed' | 'escape') => void;
-  onError?: (error: DodoCheckoutErrorPayload) => void;
-}
+import { CloseReason, CheckoutMessageType } from './enums';
+import type {
+  DodoCheckoutConfig,
+  DodoCheckoutSuccessPayload,
+  DodoCheckoutErrorPayload,
+} from './types';
 
 type CheckoutMessage =
-  | { type: 'CHECKOUT_SUCCESS'; payload: DodoCheckoutSuccessPayload }
-  | { type: 'CHECKOUT_ERROR'; payload: DodoCheckoutErrorPayload }
-  | { type: 'CHECKOUT_CLOSE_REQUESTED' };
+  | { type: CheckoutMessageType.Success; payload: DodoCheckoutSuccessPayload }
+  | { type: CheckoutMessageType.Error; payload: DodoCheckoutErrorPayload }
+  | { type: CheckoutMessageType.CloseRequested };
 
-// CHECKOUT_ORIGIN is injected at build time via esbuild --define.
-// In dev: http://localhost:5173 (same Vite server serves /checkout)
-// In prod: https://checkout.dodo-demo.app (separately-hosted, cross-origin app)
-// The security story (strict event.origin check) is identical in both environments —
-// the constant is always a fixed trusted value, never window.location.origin.
 declare const __CHECKOUT_ORIGIN__: string;
-const CHECKOUT_ORIGIN = __CHECKOUT_ORIGIN__;
+
+function resolveCheckoutOrigin(): string {
+  if (typeof window !== 'undefined') {
+    if (
+      !__CHECKOUT_ORIGIN__ ||
+      __CHECKOUT_ORIGIN__.includes('dodo-demo.app') ||
+      window.location.hostname.endsWith('.vercel.app') ||
+      window.location.hostname === 'localhost' ||
+      window.location.hostname === '127.0.0.1'
+    ) {
+      return window.location.origin;
+    }
+  }
+  return typeof __CHECKOUT_ORIGIN__ !== 'undefined' ? __CHECKOUT_ORIGIN__ : 'http://localhost:5173';
+}
 
 class DodoCheckout {
   private static instance: DodoCheckout | null = null;
@@ -33,6 +33,7 @@ class DodoCheckout {
   private overlay: HTMLDivElement | null = null;
   private config: DodoCheckoutConfig | null = null;
   private isClosing: boolean = false;
+  private checkoutOrigin: string = resolveCheckoutOrigin();
 
   constructor() {
     this.handleMessage = this.handleMessage.bind(this);
@@ -53,7 +54,7 @@ class DodoCheckout {
 
   public static close() {
     if (DodoCheckout.instance) {
-      DodoCheckout.instance.triggerClose('user_closed');
+      DodoCheckout.instance.triggerClose(CloseReason.UserClosed);
     }
   }
 
@@ -65,6 +66,7 @@ class DodoCheckout {
 
     this.config = config;
     this.isClosing = false;
+    this.checkoutOrigin = resolveCheckoutOrigin();
 
     this.overlay = document.createElement('div');
     this.overlay.setAttribute('role', 'dialog');
@@ -75,31 +77,38 @@ class DodoCheckout {
     this.overlay.style.left = '0';
     this.overlay.style.width = '100vw';
     this.overlay.style.height = '100vh';
-    this.overlay.style.backgroundColor = 'rgba(0, 0, 0, 0.4)';
-    this.overlay.style.backdropFilter = 'blur(4px)';
+    this.overlay.style.backgroundColor = 'rgba(15, 23, 42, 0.65)';
+    this.overlay.style.backdropFilter = 'blur(8px)';
     this.overlay.style.zIndex = '2147483647';
     this.overlay.style.display = 'flex';
     this.overlay.style.alignItems = 'center';
     this.overlay.style.justifyContent = 'center';
+    this.overlay.style.padding = '16px';
     this.overlay.style.opacity = '0';
-    this.overlay.style.transition = 'opacity 0.3s ease';
+    this.overlay.style.transition = 'opacity 0.25s cubic-bezier(0.16, 1, 0.3, 1)';
 
     this.overlay.addEventListener('click', (e) => {
       if (e.target === this.overlay) {
-        this.triggerClose('user_closed');
+        this.triggerClose(CloseReason.UserClosed);
       }
     });
 
+    const hostOrigin = typeof window !== 'undefined' ? window.location.origin : '';
+    const checkoutUrl = `${this.checkoutOrigin}/checkout?productId=${encodeURIComponent(
+      config.productId
+    )}&hostOrigin=${encodeURIComponent(hostOrigin)}`;
+
     this.iframe = document.createElement('iframe');
-    this.iframe.src = `${CHECKOUT_ORIGIN}/checkout?productId=${encodeURIComponent(config.productId)}`;
+    this.iframe.src = checkoutUrl;
     this.iframe.style.width = '100%';
-    this.iframe.style.maxWidth = '420px';
-    this.iframe.style.height = '600px';
+    this.iframe.style.maxWidth = '460px';
+    this.iframe.style.height = '670px';
+    this.iframe.style.maxHeight = '94vh';
     this.iframe.style.border = 'none';
-    this.iframe.style.borderRadius = '16px';
-    this.iframe.style.boxShadow = '0 25px 50px -12px rgba(0, 0, 0, 0.25)';
-    this.iframe.style.transform = 'scale(0.95) translateY(20px)';
-    this.iframe.style.transition = 'transform 0.3s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.3s ease';
+    this.iframe.style.borderRadius = '20px';
+    this.iframe.style.boxShadow = '0 25px 60px -15px rgba(0, 0, 0, 0.35), 0 0 0 1px rgba(0, 0, 0, 0.06)';
+    this.iframe.style.transform = 'scale(0.96) translateY(16px)';
+    this.iframe.style.transition = 'transform 0.25s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.25s ease';
     this.iframe.style.opacity = '0';
     this.iframe.allow = 'payment';
     this.iframe.title = 'Dodo Checkout';
@@ -117,15 +126,15 @@ class DodoCheckout {
     document.addEventListener('keydown', this.handleKeyDown);
   }
 
-  private triggerClose(reason: 'user_closed' | 'completed' | 'escape') {
+  private triggerClose(reason: CloseReason) {
     if (this.isClosing || !this.iframe) return;
     this.isClosing = true;
 
-    this.iframe.contentWindow?.postMessage({ type: 'CHECKOUT_CLOSING', reason }, CHECKOUT_ORIGIN);
+    this.iframe.contentWindow?.postMessage({ type: CheckoutMessageType.Closing, reason }, this.checkoutOrigin);
     this.unmount(reason);
   }
 
-  private unmount(reason: 'user_closed' | 'completed' | 'escape') {
+  private unmount(reason: CloseReason) {
     if (!this.overlay) return;
 
     this.overlay.style.opacity = '0';
@@ -147,34 +156,34 @@ class DodoCheckout {
       this.config?.onClose?.(reason);
       this.config = null;
       this.isClosing = false;
-    }, 300);
+    }, 250);
   }
 
   private handleMessage(event: MessageEvent) {
-    if (event.origin !== CHECKOUT_ORIGIN) return;
+    if (event.origin !== this.checkoutOrigin) return;
 
     const data = event.data as CheckoutMessage;
     if (!data || typeof data !== 'object') return;
 
     switch (data.type) {
-      case 'CHECKOUT_SUCCESS':
+      case CheckoutMessageType.Success:
         this.config?.onSuccess?.(data.payload);
-        setTimeout(() => this.triggerClose('completed'), 2000);
+        setTimeout(() => this.triggerClose(CloseReason.Completed), 2000);
         break;
-      case 'CHECKOUT_ERROR':
+      case CheckoutMessageType.Error:
         this.config?.onError?.(data.payload);
         break;
-      case 'CHECKOUT_CLOSE_REQUESTED':
-        this.triggerClose('user_closed');
+      case CheckoutMessageType.CloseRequested:
+        this.triggerClose(CloseReason.UserClosed);
         break;
     }
   }
 
   private handleKeyDown(event: KeyboardEvent) {
     if (event.key === 'Escape') {
-      this.triggerClose('escape');
+      this.triggerClose(CloseReason.Escape);
     }
   }
 }
 
-(window as any).DodoCheckout = DodoCheckout;
+(window as unknown as { DodoCheckout: typeof DodoCheckout }).DodoCheckout = DodoCheckout;

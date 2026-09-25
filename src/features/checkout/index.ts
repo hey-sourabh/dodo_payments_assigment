@@ -1,0 +1,1 @@
+export { CheckoutFeature } from './CheckoutFeature';

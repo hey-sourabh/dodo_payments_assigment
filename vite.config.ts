@@ -3,15 +3,22 @@ import { defineConfig } from 'vite';
 
 const isDev = process.env.NODE_ENV !== 'production';
 
-// In dev both apps run on the same Vite server (localhost:5173).
-// In production the checkout app would be deployed to a separate domain.
-const CHECKOUT_ORIGIN = isDev
-  ? 'http://localhost:5173'
-  : 'https://checkout.dodo-demo.app';
+// Support Vercel deployment URLs and explicit environment variables
+const vercelOrigin = process.env.VERCEL_PROJECT_PRODUCTION_URL
+  ? `https://${process.env.VERCEL_PROJECT_PRODUCTION_URL}`
+  : process.env.VERCEL_URL
+  ? `https://${process.env.VERCEL_URL}`
+  : null;
 
-const HOST_ORIGIN = isDev
-  ? 'http://localhost:5173'
-  : 'https://acme-store.dodo-demo.app';
+const CHECKOUT_ORIGIN =
+  process.env.VITE_CHECKOUT_ORIGIN ||
+  vercelOrigin ||
+  (isDev ? 'http://localhost:5173' : 'https://sourabh-labs.dodo-demo.app');
+
+const HOST_ORIGIN =
+  process.env.VITE_HOST_ORIGIN ||
+  vercelOrigin ||
+  (isDev ? 'http://localhost:5173' : 'https://sourabh-labs.dodo-demo.app');
 
 // https://vite.dev/config/
 export default defineConfig({
