@@ -1,0 +1,30 @@
+{
+  "name": "dodo_payments_assigment",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "node scripts/build-sdk.mjs && vite",
+    "build": "node scripts/build-sdk.mjs --prod && tsc -b && vite build",
+    "sdk:dev": "node scripts/build-sdk.mjs",
+    "sdk:build": "node scripts/build-sdk.mjs --prod",
+    "lint": "oxlint",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "lucide-react": "^1.48.0",
+    "react": "^19.2.8",
+    "react-dom": "^19.2.8",
+    "react-router-dom": "^7.18.4"
+  },
+  "devDependencies": {
+    "@types/node": "^24.13.3",
+    "@types/react": "^19.2.18",
+    "@types/react-dom": "^19.2.7",
+    "@vitejs/plugin-react": "^4.7.0",
+    "esbuild": "^0.28.2",
+    "oxlint": "^1.81.0",
+    "typescript": "~6.0.2",
+    "vite": "^5.4.21"
+  }
+}
